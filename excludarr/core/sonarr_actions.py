@@ -150,6 +150,10 @@ class SonarrActions:
 
         return jw_id, jw_serie_data
 
+    def get_series(self):
+        series = self.sonarr_client.serie.get_all_series()
+        return series
+
     def get_series_to_exclude(
         self, providers, fast=True, disable_progress=False, tmdb_api_key=None
     ):

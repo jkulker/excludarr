@@ -18,7 +18,8 @@ def get_tmdb_ids(external_ids):
         tmdb_ids = [
             int(x["external_id"])
             for x in external_ids
-            if x["provider"] == "tmdb_latest" or x["provider"] == "tmdb"
+            if (x["provider"] == "tmdb_latest" or x["provider"] == "tmdb")
+            and x["external_id"].isnumeric()
         ]
         tmdb_ids = list(set(tmdb_ids))
     except (KeyError, IndexError):
@@ -79,27 +80,49 @@ def get_jw_providers(raw_data):
     return providers
 
 
-def get_release_date(raw_movie_data, format="%Y-%m-%d"):
+def get_jw_providers_ids(raw_data):
+    providers = []
+
+    try:
+        for entry in raw_data["offers"]:
+            providers.append(entry["provider_id"])
+    except KeyError:
+        # This means that there are no providers found in the configured locale.
+        # Ignore this exception and return an empty dict.
+        pass
+
+    return list(set(providers))
+
+
+def get_release_date(raw_movie_data):
     release_cinema = raw_movie_data.get("inCinemas")
     release_digital = raw_movie_data.get("digitalRelease")
     release_physical = raw_movie_data.get("physicalRelease")
 
     if release_cinema:
-        release_date = datetime.datetime.strptime(release_cinema, "%Y-%m-%dT%H:%M:%SZ").strftime(
-            format
-        )
+        release_date = datetime.datetime.strptime(release_cinema, "%Y-%m-%dT%H:%M:%SZ")
     elif release_digital:
-        release_date = datetime.datetime.strptime(release_digital, "%Y-%m-%dT%H:%M:%SZ").strftime(
-            format
-        )
+        release_date = datetime.datetime.strptime(release_digital, "%Y-%m-%dT%H:%M:%SZ")
     elif release_physical:
-        release_date = datetime.datetime.strptime(release_physical, "%Y-%m-%dT%H:%M:%SZ").strftime(
-            format
-        )
+        release_date = datetime.datetime.strptime(release_physical, "%Y-%m-%dT%H:%M:%SZ")
     else:
         release_date = None
 
     return release_date
+
+
+def get_string_from_datetime(date, format):
+    try:
+        return date.strftime(format)
+    except AttributeError:
+        return None
+
+
+def get_datetime_from_string(date, format):
+    try:
+        return datetime.datetime.strptime(date, format)
+    except (AttributeError, ValueError):
+        return None
 
 
 def get_filesize_gb(filesize):

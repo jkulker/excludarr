@@ -77,6 +77,10 @@ class Config:
         return self.general_section.get("locale", None)
 
     @property
+    def database_path(self):
+        return self.general_section.get("database_path", None)
+
+    @property
     def providers(self):
         return self.general_section.get("providers", [])
 

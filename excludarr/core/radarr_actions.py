@@ -1,4 +1,3 @@
-from platform import release
 from loguru import logger
 from rich.progress import Progress
 
@@ -18,49 +17,52 @@ class RadarrActions:
         logger.debug(f"Initializing JustWatch API with locale: {locale}")
         self.justwatch_client = JustWatch(locale)
 
-    def _get_jw_movie_data(self, title, jw_entry):
-        jw_id = jw_entry["id"]
-        jw_movie_data = {}
+    def _get_jw_tmdb_ids(self, title, jw_id):
         jw_tmdb_ids = []
 
+        jw_movie_data = self.get_jw_movie_data(title, jw_id)
+        jw_tmdb_ids = filters.get_tmdb_ids(jw_movie_data.get("external_ids", []))
+
+        return jw_tmdb_ids
+
+    def validate_jw_id(self, title, tmdb_id, jw_id):
+        if jw_id:
+            jw_tmdb_ids = self._get_jw_tmdb_ids(title, jw_id)
+        else:
+            return False
+
+        validated = False
+        if tmdb_id in jw_tmdb_ids:
+            logger.debug(f"Validated JustWatch ID: {jw_id} for {title} with TMDB ID: {tmdb_id}")
+            validated = True
+
+        return validated
+
+    def get_jw_movie_data(self, title, jw_id):
         try:
             logger.debug(f"Querying JustWatch API with ID: {jw_id} for title: {title}")
             jw_movie_data = self.justwatch_client.get_movie(jw_id)
 
-            jw_tmdb_ids = filters.get_tmdb_ids(jw_movie_data.get("external_ids", []))
-            logger.debug(f"Got TMDB ID's: {jw_tmdb_ids} from JustWatch API")
+            return jw_movie_data
         except JustWatchNotFound:
             logger.warning(f"Could not find title: {title} with JustWatch ID: {jw_id}")
         except JustWatchTooManyRequests:
             logger.error(f"JustWatch API returned 'Too Many Requests'")
             # TODO: Raise error so typer can abort properly
 
-        return jw_movie_data, jw_tmdb_ids
-
-    def _find_movie(self, movie, jw_providers, fast, exclude):
-        # Set the minimal base variables
-        title = movie["title"]
-        tmdb_id = movie["tmdbId"]
-        release_year = filters.get_release_date(movie, format="%Y")
-        providers = [values["short_name"] for _, values in jw_providers.items()]
-
-        # Set extra payload to narrow down the search if fast is true
+    def get_jw_id(self, title, tmdb_id, release_year, fast):
+        # Determine payload for JustWatch API
         jw_query_payload = {}
         if fast:
             jw_query_payload.update({"page_size": 3})
 
-            if exclude:
-                jw_query_payload.update(
-                    {"monetization_types": ["flatrate"], "providers": providers}
-                )
-
-            if release_year:
-                jw_query_payload.update(
-                    {
-                        "release_year_from": int(release_year),
-                        "release_year_until": int(release_year),
-                    }
-                )
+        if release_year:
+            jw_query_payload.update(
+                {
+                    "release_year_from": int(release_year),
+                    "release_year_until": int(release_year),
+                }
+            )
 
         # Log the JustWatch API call function
         logger.debug(f"Query JustWatch API with title: {title}")
@@ -68,14 +70,16 @@ class RadarrActions:
 
         for entry in jw_query_data["items"]:
             jw_id = entry["id"]
-            jw_movie_data, jw_tmdb_ids = self._get_jw_movie_data(title, entry)
+            jw_tmdb_ids = self._get_jw_tmdb_ids(title, jw_id)
 
             # Break if the TMBD_ID in the query of JustWatch matches the one in Radarr
             if tmdb_id in jw_tmdb_ids:
                 logger.debug(f"Found JustWatch ID: {jw_id} for {title} with TMDB ID: {tmdb_id}")
-                return jw_id, jw_movie_data
+                return jw_id
 
-        return None, None
+    def get_movies(self):
+        movies = self.radarr_client.movie.get_all_movies()
+        return movies
 
     def get_movies_to_exclude(self, providers, fast=True, disable_progress=False):
         exclude_movies = {}

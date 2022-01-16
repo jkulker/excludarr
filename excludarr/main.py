@@ -7,6 +7,8 @@ from loguru import logger
 import excludarr.commands.radarr as radarr
 import excludarr.commands.sonarr as sonarr
 import excludarr.commands.providers as providers
+import excludarr.commands.sync as sync
+
 
 from excludarr import __version__
 
@@ -17,6 +19,7 @@ app.add_typer(sonarr.app, name="sonarr", help="Manages TV shows, seasons and epi
 app.add_typer(
     providers.app, name="providers", help="List all the possible providers for your locale."
 )
+app.add_typer(sync.app, name="sync", help="Syncs Radarr and Sonarr instances to DB.")
 
 
 def version_callback(value: bool):
