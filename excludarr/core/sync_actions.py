@@ -1,7 +1,6 @@
 from loguru import logger
 from rich.progress import Progress
 
-from excludarr.modules.justwatch import JustWatch
 from excludarr.core import RadarrActions, SonarrActions
 from excludarr.database import Movie, Serie, init_db
 
